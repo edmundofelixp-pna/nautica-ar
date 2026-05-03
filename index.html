@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Náutica AR</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+    #camara { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    #info { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; z-index: 2; font-size: 14px; text-align: center; }
+    #brujula { position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 10px 16px; border-radius: 20px; z-index: 2; font-size: 18px; }
+    #disclaimer { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(200,0,0,0.7); padding: 8px 16px; border-radius: 10px; z-index: 2; font-size: 11px; text-align: center; max-width: 90%; }
+  </style>
+</head>
+<body>
+  <video id="camara" autoplay playsinline></video>
+  <canvas id="overlay"></canvas>
+  <div id="info">GPS: esperando señal...</div>
+  <div id="brujula">&#9737; ---°</div>
+  <div id="disclaimer">AVISO: Esta app es solo una ayuda visual. No sustituye instrumentos náuticos certificados ni la pericia del navegante.</div>
+
+  <script>
+    // Cámara
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then(stream => { document.getElementById('camara').srcObject = stream; })
+      .catch(err => { document.getElementById('info').textContent = 'Error: no se pudo acceder a la cámara'; });
+
+    // GPS
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude.toFixed(5);
+        const lon = pos.coords.longitude.toFixed(5);
+        document.getElementById('info').textContent = `GPS: ${lat}, ${lon}`;
+      }, err => {
+        document.getElementById('info').textContent = 'GPS: sin señal';
+      });
+    }
+
+    // Brújula
+    window.addEventListener('deviceorientationabsolute', e => {
+      if (e.alpha !== null) {
+        const rumbo = Math.round(e.alpha);
+        document.getElementById('brujula').textContent = `⊕ ${rumbo}°`;
+      }
+    });
+  </script>
+</body>
+</html>
