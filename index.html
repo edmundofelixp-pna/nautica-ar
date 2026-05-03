@@ -8,43 +8,121 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
     #camara { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-    #info { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; z-index: 2; font-size: 14px; text-align: center; }
-    #brujula { position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 10px 16px; border-radius: 20px; z-index: 2; font-size: 18px; }
-    #disclaimer { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(200,0,0,0.7); padding: 8px 16px; border-radius: 10px; z-index: 2; font-size: 11px; text-align: center; max-width: 90%; }
+    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    #info { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; z-index: 2; font-size: 13px; text-align: center; white-space: nowrap; }
+    #brujula { position: fixed; top: 20px; right: 20px; background: rgba(0,0,80,0.7); padding: 10px 16px; border-radius: 20px; z-index: 2; font-size: 18px; border: 1px solid #4af; }
+    #disclaimer { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(180,0,0,0.8); padding: 8px 16px; border-radius: 10px; z-index: 2; font-size: 11px; text-align: center; max-width: 90%; }
+    #creditos { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 10px; z-index: 2; font-size: 10px; color: #aaa; }
+    .marcador { position: fixed; z-index: 3; text-align: center; transform: translateX(-50%); pointer-events: none; }
+    .marcador-punto { width: 14px; height: 14px; border-radius: 50%; margin: 0 auto 4px; border: 2px solid white; }
+    .marcador-label { background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 8px; font-size: 12px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3); }
+    .marcador-dist { font-size: 10px; color: #adf; margin-top: 2px; }
   </style>
 </head>
 <body>
   <video id="camara" autoplay playsinline></video>
   <canvas id="overlay"></canvas>
   <div id="info">GPS: esperando señal...</div>
-  <div id="brujula">&#9737; ---°</div>
-  <div id="disclaimer">AVISO: Esta app es solo una ayuda visual. No sustituye instrumentos náuticos certificados ni la pericia del navegante.</div>
+  <div id="brujula">⊕ ---°</div>
+  <div id="creditos">Datos: © OpenSeaMap contributors</div>
+  <div id="disclaimer">AVISO: Solo ayuda visual. No sustituye instrumentos náuticos certificados.</div>
 
   <script>
+    // Puntos de navegación - República Dominicana
+    const PUNTOS = [
+      { nombre: "Pta. Torrecilla",     lat: 18.4281,  lon: -69.8767, color: "#ffdd00", tipo: "⚓" },
+      { nombre: "Pta. Palenque",       lat: 18.2050,  lon: -70.1450, color: "#ff6600", tipo: "⚓" },
+      { nombre: "Puerto Sto. Domingo", lat: 18.4720,  lon: -69.9020, color: "#00aaff", tipo: "🚢" },
+      { nombre: "Puerto Plata",        lat: 19.7808,  lon: -70.6871, color: "#00ff99", tipo: "⚓" },
+    ];
+
+    let miLat = null, miLon = null, rumbo = 0;
+    const FOV_H = 60;
+
     // Cámara
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
       .then(stream => { document.getElementById('camara').srcObject = stream; })
-      .catch(err => { document.getElementById('info').textContent = 'Error: no se pudo acceder a la cámara'; });
+      .catch(() => { document.getElementById('info').textContent = 'Error: cámara no disponible'; });
 
     // GPS
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude.toFixed(5);
-        const lon = pos.coords.longitude.toFixed(5);
-        document.getElementById('info').textContent = `GPS: ${lat}, ${lon}`;
-      }, err => {
+        miLat = pos.coords.latitude;
+        miLon = pos.coords.longitude;
+        document.getElementById('info').textContent =
+          `GPS: ${miLat.toFixed(4)}, ${miLon.toFixed(4)}`;
+        actualizarMarcadores();
+      }, () => {
         document.getElementById('info').textContent = 'GPS: sin señal';
-      });
+      }, { enableHighAccuracy: true });
     }
 
     // Brújula
     window.addEventListener('deviceorientationabsolute', e => {
       if (e.alpha !== null) {
-        const rumbo = Math.round(e.alpha);
-        document.getElementById('brujula').textContent = `⊕ ${rumbo}°`;
+        rumbo = e.alpha;
+        document.getElementById('brujula').textContent = `⊕ ${Math.round(rumbo)}°`;
+        actualizarMarcadores();
       }
     });
+    window.addEventListener('deviceorientation', e => {
+      if (e.webkitCompassHeading !== undefined) {
+        rumbo = e.webkitCompassHeading;
+        document.getElementById('brujula').textContent = `⊕ ${Math.round(rumbo)}°`;
+        actualizarMarcadores();
+      }
+    });
+
+    function calcularRumbo(lat1, lon1, lat2, lon2) {
+      const toRad = d => d * Math.PI / 180;
+      const dLon = toRad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    function calcularDistancia(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 +
+                Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function actualizarMarcadores() {
+      if (miLat === null) return;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+
+      document.querySelectorAll('.marcador').forEach(m => m.remove());
+
+      PUNTOS.forEach(p => {
+        const rumboPunto = calcularRumbo(miLat, miLon, p.lat, p.lon);
+        const dist = calcularDistancia(miLat, miLon, p.lat, p.lon);
+
+        let diff = rumboPunto - rumbo;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+
+        if (Math.abs(diff) < FOV_H / 2) {
+          const x = W / 2 + (diff / (FOV_H / 2)) * (W / 2);
+          const y = H / 2 - 50;
+
+          const div = document.createElement('div');
+          div.className = 'marcador';
+          div.style.left = x + 'px';
+          div.style.top = y + 'px';
+          div.innerHTML = `
+            <div class="marcador-punto" style="background:${p.color}"></div>
+            <div class="marcador-label">${p.tipo} ${p.nombre}</div>
+            <div class="marcador-dist">${dist < 1 ? (dist*1000).toFixed(0)+'m' : dist.toFixed(1)+'km'}</div>
+          `;
+          document.body.appendChild(div);
+        }
+      });
+    }
   </script>
 </body>
 </html>
