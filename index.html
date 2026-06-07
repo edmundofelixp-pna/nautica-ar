@@ -57,7 +57,7 @@
         this.P = (1 - this.K) * this.P;
 
         // Normalizar entre 0 y 360
-        this.x = (this.x + 360) % 360;
+        this.x = (360 - this.x) % 360;
         return this.x;
       }
     }
