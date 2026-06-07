@@ -10,22 +10,32 @@
     #camara { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
     #info { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px; z-index: 2; font-size: 12px; text-align: center; white-space: nowrap; }
     #brujula { position: fixed; top: 20px; right: 15px; background: rgba(0,0,80,0.8); padding: 8px 14px; border-radius: 20px; z-index: 2; font-size: 15px; border: 1px solid #4af; }
-    #disclaimer { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(180,0,0,0.8); padding: 6px 14px; border-radius: 10px; z-index: 2; font-size: 10px; text-align: center; max-width: 90%; }
-    #creditos { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 10px; z-index: 2; font-size: 9px; color: #aaa; }
 
-    /* Botón destino */
+    /* Cruz de mira */
+    #mira { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 4; pointer-events: none; }
+    #mira::before, #mira::after { content: ''; position: absolute; background: rgba(255,255,255,0.5); }
+    #mira::before { width: 30px; height: 1px; top: 0; left: -15px; }
+    #mira::after { width: 1px; height: 30px; top: -15px; left: 0; }
+
+    /* Panel calibración */
+    #panelCal { position: fixed; top: 70px; left: 15px; background: rgba(0,0,0,0.7); padding: 10px 14px; border-radius: 12px; z-index: 2; font-size: 11px; border: 1px solid rgba(255,255,255,0.2); }
+    #panelCal label { display: block; margin-bottom: 4px; color: #adf; }
+    #sliderFOV { width: 120px; }
+    #valorFOV { color: #fff; margin-left: 6px; }
+
+    #disclaimer { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(180,0,0,0.8); padding: 6px 14px; border-radius: 10px; z-index: 2; font-size: 10px; text-align: center; max-width: 90%; }
+    #creditos { position: fixed; bottom: 62px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); padding: 3px 10px; border-radius: 10px; z-index: 2; font-size: 9px; color: #aaa; }
     #btnDestino { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,80,180,0.9); padding: 12px 30px; border-radius: 25px; z-index: 2; font-size: 15px; border: 1px solid #4af; cursor: pointer; }
 
-    /* Panel de lista */
+    /* Panel lista */
     #panelLista { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(0,10,30,0.97); z-index: 10; border-radius: 20px 20px 0 0; padding: 16px; }
     #panelLista h3 { text-align: center; margin-bottom: 12px; color: #4af; }
     .item-punto { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-    .item-punto:active { background: rgba(0,100,255,0.3); }
     .item-nombre { font-size: 15px; }
     .item-dist { font-size: 12px; color: #adf; }
     #btnCerrar { display: block; margin: 16px auto 0; background: rgba(180,0,0,0.7); padding: 10px 30px; border-radius: 20px; border: none; color: #fff; font-size: 14px; cursor: pointer; }
 
-    /* Flecha direccional */
+    /* Flecha */
     #flecha { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5; text-align: center; }
     #flecha-icono { font-size: 80px; line-height: 1; }
     #flecha-info { background: rgba(0,0,0,0.7); padding: 6px 14px; border-radius: 12px; font-size: 13px; margin-top: 8px; }
@@ -35,24 +45,33 @@
     .marcador-punto { width: 16px; height: 16px; border-radius: 50%; margin: 0 auto 4px; border: 2px solid white; }
     .marcador-label { background: rgba(0,0,0,0.8); padding: 4px 10px; border-radius: 8px; font-size: 13px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.4); }
     .marcador-dist { font-size: 11px; color: #adf; margin-top: 3px; }
+    .marcador-rumbo { font-size: 10px; color: #ffa; margin-top: 2px; }
   </style>
 </head>
 <body>
   <video id="camara" autoplay playsinline></video>
+  <div id="mira"></div>
   <div id="info">GPS: esperando señal...</div>
   <div id="brujula">⊕ ---°</div>
+
+  <!-- Calibración FOV -->
+  <div id="panelCal">
+    <label>🎯 Calibrar precisión</label>
+    <input type="range" id="sliderFOV" min="40" max="120" value="90"
+      oninput="document.getElementById('valorFOV').textContent=this.value+'°'; FOV_H=parseInt(this.value); actualizarVista();">
+    <span id="valorFOV">90°</span>
+  </div>
+
   <div id="creditos">Datos: © OpenSeaMap contributors</div>
   <div id="disclaimer">AVISO: Solo ayuda visual. No sustituye instrumentos náuticos certificados.</div>
   <button id="btnDestino" onclick="abrirLista()">🧭 Seleccionar Destino</button>
 
-  <!-- Lista de puntos -->
   <div id="panelLista">
     <h3>Selecciona un destino</h3>
     <div id="listaPuntos"></div>
     <button id="btnCerrar" onclick="cerrarLista()">✕ Cerrar</button>
   </div>
 
-  <!-- Flecha direccional -->
   <div id="flecha">
     <div id="flecha-icono">➡️</div>
     <div id="flecha-info">---</div>
@@ -67,10 +86,9 @@
         let diff = m - this.x;
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
-        const ma = this.x + diff;
         this.P += this.Q;
         this.K = this.P / (this.P + this.R);
-        this.x += this.K * (ma - this.x);
+        this.x += this.K * diff;
         this.P = (1 - this.K) * this.P;
         this.x = (360 - this.x + 360) % 360;
         return this.x;
@@ -90,7 +108,7 @@
     let rumboFiltrado = 0;
     let usandoAbsolute = false;
     let destinoActivo = null;
-    const FOV_H = 90;
+    let FOV_H = 90;
 
     // ── CÁMARA ─────────────────────────────────────────────────
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
@@ -145,11 +163,12 @@
       lista.innerHTML = '';
       PUNTOS.forEach((p, i) => {
         const dist = miLat ? calcularDistancia(miLat, miLon, p.lat, p.lon) : 0;
+        const rumbo = miLat ? Math.round(calcularRumbo(miLat, miLon, p.lat, p.lon)) : 0;
         const div = document.createElement('div');
         div.className = 'item-punto';
         div.innerHTML = `
           <span class="item-nombre">${p.tipo} ${p.nombre}</span>
-          <span class="item-dist">${miLat ? dist.toFixed(1)+' km' : '---'}</span>
+          <span class="item-dist">${miLat ? dist.toFixed(1)+' km · '+rumbo+'°' : '---'}</span>
         `;
         div.onclick = () => seleccionarDestino(i);
         lista.appendChild(div);
@@ -168,48 +187,45 @@
       actualizarVista();
     }
 
-    // ── VISTA AR + FLECHA ──────────────────────────────────────
+    // ── VISTA AR ───────────────────────────────────────────────
     function actualizarVista() {
       if (miLat === null) return;
       const W = window.innerWidth, H = window.innerHeight;
-
-      // Limpiar marcadores
       document.querySelectorAll('.marcador').forEach(m => m.remove());
 
-      // Si hay destino activo
-      if (destinoActivo !== null) {
-        const p = PUNTOS[destinoActivo];
-        const rumboPunto = calcularRumbo(miLat, miLon, p.lat, p.lon);
-        const dist = calcularDistancia(miLat, miLon, p.lat, p.lon);
-        let diff = rumboPunto - rumboFiltrado;
-        if (diff > 180) diff -= 360;
-        if (diff < -180) diff += 360;
+      if (destinoActivo === null) return;
 
-        const distStr = dist < 1 ? (dist*1000).toFixed(0)+'m' : dist.toFixed(1)+'km';
+      const p = PUNTOS[destinoActivo];
+      const rumboPunto = calcularRumbo(miLat, miLon, p.lat, p.lon);
+      const dist = calcularDistancia(miLat, miLon, p.lat, p.lon);
+      let diff = rumboPunto - rumboFiltrado;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
 
-        if (Math.abs(diff) < FOV_H / 2) {
-          // Está en el campo visual — mostrar marcador AR
-          document.getElementById('flecha').style.display = 'none';
-          const x = W / 2 + (diff / (FOV_H / 2)) * (W / 2);
-          const div = document.createElement('div');
-          div.className = 'marcador';
-          div.style.left = x + 'px';
-          div.style.top = (H / 2 - 60) + 'px';
-          div.innerHTML = `
-            <div class="marcador-punto" style="background:${p.color}"></div>
-            <div class="marcador-label">${p.tipo} ${p.nombre}</div>
-            <div class="marcador-dist">${distStr}</div>
-          `;
-          document.body.appendChild(div);
-        } else {
-          // Fuera del campo visual — mostrar flecha
-          document.getElementById('flecha').style.display = 'block';
-          const icono = diff < 0 ? '⬅️' : '➡️';
-          const gradosDiff = Math.abs(Math.round(diff));
-          document.getElementById('flecha-icono').textContent = icono;
-          document.getElementById('flecha-info').textContent =
-            `${p.tipo} ${p.nombre} · ${distStr} · Gira ${gradosDiff}°`;
-        }
+      const distStr = dist < 1 ? (dist*1000).toFixed(0)+'m' : dist.toFixed(1)+'km';
+      const rumboStr = Math.round(rumboPunto) + '°';
+
+      if (Math.abs(diff) < FOV_H / 2) {
+        document.getElementById('flecha').style.display = 'none';
+        const x = W / 2 + (diff / (FOV_H / 2)) * (W / 2);
+        const div = document.createElement('div');
+        div.className = 'marcador';
+        div.style.left = x + 'px';
+        div.style.top = (H / 2 - 60) + 'px';
+        div.innerHTML = `
+          <div class="marcador-punto" style="background:${p.color}"></div>
+          <div class="marcador-label">${p.tipo} ${p.nombre}</div>
+          <div class="marcador-dist">${distStr}</div>
+          <div class="marcador-rumbo">Rmb: ${rumboStr}</div>
+        `;
+        document.body.appendChild(div);
+      } else {
+        document.getElementById('flecha').style.display = 'block';
+        const icono = diff < 0 ? '⬅️' : '➡️';
+        const grados = Math.abs(Math.round(diff));
+        document.getElementById('flecha-icono').textContent = icono;
+        document.getElementById('flecha-info').textContent =
+          `${p.tipo} ${p.nombre} · ${distStr} · Rmb ${rumboStr}`;
       }
     }
   </script>
